@@ -7,6 +7,7 @@
 # https://www.arhea.net/posts/2023-09-12-building-distroless-go-containers/
 # https://github.com/docker/build-push-action/issues/714
 # ssh-keygen -t ed25519 -C "github-actions" -f ~/.ssh/github_actions -N ""
+# https://github.com/aquasecurity/trivy-action#using-trivy-with-github-code-scanning
 name: Build
 
 on:
@@ -16,7 +17,11 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read # Required to checkout and read repo files
+      security-events: write # Required to upload SARIF files to Security tab
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,4 +37,16 @@ jobs:
           context: .
           ssh: default
           push: false
-          # tags:
+          tags: docker.io/adoublef/calc:${{ github.sha }}
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: docker.io/adoublef/calc:${{ github.sha }}
+          format: "sarif"
+          output: "trivy-results.sarif"
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: "trivy-results.sarif"
